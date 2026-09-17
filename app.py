@@ -91,11 +91,12 @@ def upload():
 
         file_data = video.read()
 
-        supabase.storage.from_(BUCKET_NAME).upload(
-    filename,
-    file_data,
+       supabase.storage.from_(BUCKET_NAME).upload(
+    path=filename,
+    file=file_data,
     file_options={
-        "content-type": video.content_type
+        "content-type": video.content_type,
+        "upsert": "true"
     }
 )
 
