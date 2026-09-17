@@ -1,17 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for, session , send_from_directory
-import os
+from flask import Flask, render_template, request, redirect, url_for, session
+from supabase import create_client
 from werkzeug.utils import secure_filename
+import os
 
 app = Flask(__name__)
 
-app.secret_key = "praveen_portfolio_secret"
+app.secret_key = os.environ.get("SECRET_KEY", "praveen_portfolio_secret")
 
-UPLOAD_FOLDER = "uploads"
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+BUCKET_NAME = "videos"
+
 ALLOWED_EXTENSIONS = {"mp4", "webm", "ogg", "mov"}
-
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 def allowed_file(filename):
@@ -20,16 +23,25 @@ def allowed_file(filename):
         and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
     )
 
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return send_from_directory(
-        app.config["UPLOAD_FOLDER"],
-        filename
-    )
 
 @app.route("/")
 def home():
-    videos = os.listdir(UPLOAD_FOLDER)
+
+    try:
+        files = supabase.storage.from_(BUCKET_NAME).list()
+
+        videos = []
+
+        for file in files:
+            name = file.get("name")
+
+            if name and allowed_file(name):
+                videos.append(name)
+
+    except Exception as e:
+        print("Error:", e)
+        videos = []
+
     return render_template("index.html", videos=videos)
 
 
@@ -58,6 +70,7 @@ def admin():
 
     return render_template("admin.html")
 
+
 @app.route("/upload", methods=["POST"])
 def upload():
 
@@ -66,10 +79,7 @@ def upload():
 
     video = request.files.get("video")
 
-    if video is None:
-        return "No video selected"
-
-    if video.filename == "":
+    if video is None or video.filename == "":
         return "No video selected"
 
     if not allowed_file(video.filename):
@@ -77,33 +87,34 @@ def upload():
 
     filename = secure_filename(video.filename)
 
-    file_path = os.path.join(
-        app.config["UPLOAD_FOLDER"],
-        filename
-    )
+    try:
 
-    video.save(file_path)
+        file_data = video.read()
 
-    return "Video uploaded successfully! 🎉"
-
-    if not session.get("admin_logged_in"):
-        return redirect(url_for("login"))
-
-    video = request.files.get("video")
-
-    if video and allowed_file(video.filename):
-
-        filename = secure_filename(video.filename)
-
-        video.save(
-            os.path.join(
-                app.config["UPLOAD_FOLDER"],
-                filename
-            )
+        supabase.storage.from_(BUCKET_NAME).upload(
+            filename,
+            file_data,
+            {
+                "content-type": video.content_type
+            }
         )
 
-    return redirect(url_for("admin"))
+        return "Video uploaded successfully! 🎉"
+
+    except Exception as e:
+
+        print("Upload error:", e)
+
+        return "Video upload failed"
+
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+
+    url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
+
+    return redirect(url)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
