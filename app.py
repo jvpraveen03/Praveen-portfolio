@@ -92,15 +92,14 @@ def upload():
         file_data = video.read()
 
         supabase.storage.from_(BUCKET_NAME).upload(
-            filename,
-            file_data,
-            {
-                "content-type": video.content_type
-            }
-        )
+    filename,
+    file_data,
+    file_options={
+        "content-type": video.content_type
+    }
+)
 
-        return "Video uploaded successfully! 🎉"
-
+return "Video uploaded successfully! 🎉"
     except Exception as e:
 
         print("Upload error:", e)
