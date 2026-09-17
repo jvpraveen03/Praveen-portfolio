@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Praveen Portfolio</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="logo">PRAVEENKUMAR J</div>
+        <a href="#videos">Videos</a>
+    </nav>
+
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <p class="hello">HELLO, I'M</p>
+
+            <h1>Praveen</h1>
+
+            <h2>Editor|Turning Moments Into Stories</h2>
+
+            <p class="description">
+                Welcome to my portfolio website.
+                Here you can explore my profile,
+                projects and latest videos.
+            </p>
+        <div class="contact-info">
+
+    <a href="tel:+917397098773">
+        📞 +91 73970 98773
+    </a>
+
+    <a href="mailto:jvpraveen03@gmail.com">
+        ✉️ jvpraveen03@gmail.com
+    </a>
+
+</div>    
+
+        </div>
+
+    </section>
+
+
+    <section id="videos" class="videos-section">
+
+        <div class="section-heading">
+
+            <p>MY WORK</p>
+
+            <h2>Latest Videos</h2>
+
+            <span>Explore my latest work and projects</span>
+
+        </div>
+
+<div class="video-grid">
+
+    {% for video in videos %}
+
+    <div class="video-card">
+
+        <div class="video-wrapper">
+
+            <video controls>
+                <source src="/uploads/{{ video }}" type="video/mp4">
+                Your browser does not support video playback.
+            </video>
+
+        </div>
+
+        <div class="video-info">
+
+            <div class="video-number">
+                VIDEO {{ "%02d"|format(loop.index) }}
+            </div>
+
+            <h3>{{ video }}</h3>
+
+            <p>
+                My latest portfolio video.
+            </p>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+       
+    </section>
+
+
+    <footer>
+
+        <p>© 2026 Praveen Portfolio</p>
+
+    </footer>
+
+</body>
+</html>
