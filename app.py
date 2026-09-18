@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-from supabase import create_client
 from werkzeug.utils import secure_filename
+import request
 import os
 
 app = Flask(__name__)
