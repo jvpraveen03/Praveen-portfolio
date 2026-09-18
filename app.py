@@ -12,9 +12,12 @@ app.secret_key = os.environ.get(
 )
 
 # Supabase settings
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_URL = str(os.environ.get("SUPABASE_URL", "")).strip().rstrip("/")
+SUPABASE_KEY = str(os.environ.get("SUPABASE_KEY","")).strip()
 
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError("SUPASE_URL or SUPABASE_KEY is missing")
+    
 supabase = create_client(
     SUPABASE_URL,
     SUPABASE_KEY
