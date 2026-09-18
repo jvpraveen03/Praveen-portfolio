@@ -10,7 +10,7 @@ app.secret_key = os.environ.get(
     "praveen_portfolio_secret"
 )
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_URL = os.environ.get("SUPABASE_URL","").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 BUCKET_NAME = "videos"
