@@ -110,8 +110,8 @@ def upload():
         file_data = video.read()
 
         upload_url = (
-            f"{SUPABASE_URL}/storage/v1/object/"
-            f"{BUCKET_NAME}/{filename}"
+            f"{SUPABASE_URL}/storage/v1/object/
+            {BUCKET_NAME}/{filename}"
         )
 
         response = requests.post(
