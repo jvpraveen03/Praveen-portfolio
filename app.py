@@ -1,37 +1,21 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
-import request
 import os
+import requests
 
 app = Flask(__name__)
 
-# Secret key
 app.secret_key = os.environ.get(
     "SECRET_KEY",
     "praveen_portfolio_secret"
 )
 
-# Supabase settings
-SUPABASE_URL = str(os.environ.get("SUPABASE_URL", "")).strip().rstrip("/")
-SUPABASE_KEY = str(os.environ.get("SUPABASE_KEY","")).strip()
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("SUPASE_URL or SUPABASE_KEY is missing")
-    
-supabase = create_client(
-    SUPABASE_URL,
-    SUPABASE_KEY
-)
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "").strip()
 
 BUCKET_NAME = "videos"
 
-# Allowed video formats
-ALLOWED_EXTENSIONS = {
-    "mp4",
-    "webm",
-    "ogg",
-    "mov"
-}
+ALLOWED_EXTENSIONS = {"mp4", "webm", "ogg", "mov"}
 
 
 def allowed_file(filename):
@@ -42,31 +26,43 @@ def allowed_file(filename):
     )
 
 
-# =========================
-# HOME PAGE
-# =========================
-
 @app.route("/")
 def home():
 
+    videos = []
+
     try:
+        url = f"{SUPABASE_URL}/storage/v1/object/list/{BUCKET_NAME}"
 
-        files = supabase.storage.from_(BUCKET_NAME).list()
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json"
+        }
 
-        videos = []
+        response = requests.post(
+            url,
+            headers=headers,
+            json={
+                "prefix": "",
+                "limit": 100,
+                "offset": 0
+            },
+            timeout=30
+        )
 
-        for file in files:
+        print("LIST STATUS:", response.status_code)
+        print("LIST RESPONSE:", response.text)
 
-            name = file.get("name")
+        if response.ok:
+            for item in response.json():
+                name = item.get("name")
 
-            if name and allowed_file(name):
-                videos.append(name)
+                if name and allowed_file(name):
+                    videos.append(name)
 
     except Exception as e:
-
-        print("List error:", repr(e))
-
-        videos = []
+        print("LIST ERROR:", repr(e))
 
     return render_template(
         "index.html",
@@ -74,170 +70,117 @@ def home():
     )
 
 
-# =========================
-# LOGIN
-# =========================
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
 
         if username == "admin" and password == "Admin@123":
-
             session["admin_logged_in"] = True
-
-            return redirect(
-                url_for("admin")
-            )
+            return redirect(url_for("admin"))
 
         return "Invalid username or password"
 
     return render_template("login.html")
 
 
-# =========================
-# ADMIN DASHBOARD
-# =========================
-
 @app.route("/admin")
 def admin():
 
     if not session.get("admin_logged_in"):
-
-        return redirect(
-            url_for("login")
-        )
+        return redirect(url_for("login"))
 
     return render_template("admin.html")
 
 
-# =========================
-# UPLOAD VIDEO
-# =========================
-
 @app.route("/upload", methods=["POST"])
 def upload():
 
-    # Check admin login
     if not session.get("admin_logged_in"):
+        return redirect(url_for("login"))
 
-        return redirect(
-            url_for("login")
-        )
-
-    # Get uploaded file
     video = request.files.get("video")
 
-    if video is None or video.filename == "":
-
+    if video is None or not video.filename:
         return "No video selected"
 
-    # Check file type
     if not allowed_file(video.filename):
-
         return "Invalid video format"
 
-    # Secure filename
-    filename = secure_filename(
-        video.filename
-    )
+    filename = secure_filename(video.filename)
 
     try:
 
-        # Read video
         file_data = video.read()
 
-        # Upload to Supabase
-        result = supabase.storage.from_(
-            BUCKET_NAME
-        ).upload(
-            filename,
-            file_data,
-            file_options={
-                "content-type": (
-                    video.content_type
-                    or "video/mp4"
-                ),
-                "upsert": True
-            }
+        upload_url = (
+            f"{SUPABASE_URL}/storage/v1/object/"
+            f"{BUCKET_NAME}/{filename}"
         )
 
-        print(
-            "UPLOAD RESULT:",
-            result
+        content_type = video.content_type or "video/mp4"
+
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": str(content_type),
+            "x-upsert": "true"
+        }
+
+        response = requests.post(
+            upload_url,
+            headers=headers,
+            data=file_data,
+            timeout=120
         )
+
+        print("UPLOAD STATUS:", response.status_code)
+        print("UPLOAD RESPONSE:", response.text)
+
+        if response.status_code in (200, 201):
+
+            return "Video uploaded successfully! 🎉"
 
         return (
-            "Video uploaded successfully! 🎉"
+            "Video upload failed: "
+            + response.text
         )
 
     except Exception as e:
 
-        print(
-            "Upload error:",
-            repr(e)
-        )
+        print("UPLOAD ERROR:", repr(e))
 
         return (
-            f"Video upload failed: {str(e)}"
+            "Video upload failed: "
+            + str(e)
         )
 
-
-# =========================
-# VIDEO URL
-# =========================
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
 
-    try:
+    url = (
+        f"{SUPABASE_URL}/storage/v1/object/public/"
+        f"{BUCKET_NAME}/{filename}"
+    )
 
-        url = supabase.storage.from_(
-            BUCKET_NAME
-        ).get_public_url(filename)
+    return redirect(url)
 
-        return redirect(url)
-
-    except Exception as e:
-
-        print(
-            "URL error:",
-            repr(e)
-        )
-
-        return "Video URL error"
-
-
-# =========================
-# LOGOUT
-# =========================
 
 @app.route("/logout")
 def logout():
 
     session.clear()
 
-    return redirect(
-        url_for("login")
-    )
+    return redirect(url_for("login"))
 
-
-# =========================
-# RUN APP
-# =========================
 
 if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
-        port=int(
-            os.environ.get(
-                "PORT",
-                5000
-            )
-        )
+        port=int(os.environ.get("PORT", 5000))
     )
